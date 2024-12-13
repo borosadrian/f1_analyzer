@@ -1,8 +1,16 @@
+from typing import TypedDict
 import logging
 from .base_analyzer import BaseAnalyzer
 import fastf1
 
 logger = logging.getLogger(__name__)
+
+
+class AnalyzeResult(TypedDict):
+    driver: str
+    year: int
+    round: int
+    laps_count: int
 
 
 class DriverAnalyzer(BaseAnalyzer):
@@ -49,7 +57,7 @@ class DriverAnalyzer(BaseAnalyzer):
         self.laps = self.session.laps.pick_drivers(self.driver_code)
         logger.info(f"Data loaded for {self.driver_code}. Found {len(self.laps)} laps.")
 
-    def analyze(self) -> dict[str, str | int]:
+    def analyze(self) -> AnalyzeResult:
         """
         Performs simple analyse on specified driver. Will be extended later.
         :return: For now returns dict with driver and session info, number of laps of specified driver.
