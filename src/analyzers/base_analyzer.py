@@ -4,6 +4,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class BaseAnalyzer(ABC):
     """BaseAnalyzer is an abstract class defining interface for all performance analyzers"""
 
