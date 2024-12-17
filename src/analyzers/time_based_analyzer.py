@@ -26,11 +26,19 @@ class TimeBasedAnalyzer(BaseAnalyzer):
 
 
     def load_data(self) -> None:
+        """
+        Loads lap time data for the driver or team.
+        """
         super().load_session()
         logger.info(f"Loading lap times for {self.identifier}")
 
     @staticmethod
-    def filter_lap_outliers(self, lap_times) -> list:
+    def filter_lap_outliers(lap_times: pd.Series) -> list:
+        """
+        Filters out outlier lap times based on a threshold multiplier of standard deviation.
+        :param lap_times: Series of lap times in seconds
+        :return: List of lap times after filtering out outliers
+        """
         median_lap_time = np.median(lap_times)
         threshold = 1.5  # Adjust this multiplier for sensitivity
         return [time for time in lap_times if abs(time - median_lap_time) <= threshold * np.std(lap_times)]
@@ -50,7 +58,7 @@ class TimeBasedAnalyzer(BaseAnalyzer):
 
         if clean_lap_times:
             return np.median(clean_lap_times)
-        return 0
+        return np.nan
 
     def analyze(self) -> AnalyzeResult:
         """
