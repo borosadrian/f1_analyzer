@@ -1,7 +1,9 @@
 from typing import Optional, Any, TypedDict
+from abc import abstractmethod
 import pandas as pd
 import numpy as np
 import logging
+import matplotlib.pyplot as plt
 
 from .base_analyzer import BaseAnalyzer
 
@@ -39,6 +41,16 @@ class TimeBasedAnalyzer(BaseAnalyzer):
         :return: Clean lap times (without any nan values
         """
         return self.laps['LapTime'].dropna().dt.total_seconds()
+
+    @abstractmethod
+    def compare_lap_times(self, other: str, stint: int = None):
+        """
+        Abstract method, compares stint lap times to another driver/team stint lap times depending on where it is implemented
+        :param other: The driver/team whose lap times we want to compare with the current driver
+        :param stint: The specific stint number to filter lap times (default is None to include all laps)
+        :return: DataFrame containing lap number, first (driver/team) lap time, second (driver/team) lap time
+        """
+        pass
 
     def calculate_lap_time_variance(self) -> float:
         """
@@ -100,6 +112,17 @@ class TimeBasedAnalyzer(BaseAnalyzer):
         if clean_lap_times:
             return np.median(clean_lap_times)
         return np.nan
+
+    def plot_lap_time_progression(self):
+        progression = self.lap_time_progression()
+        plt.figure(figsize=(10, 6))
+        plt.plot(progression['LapNumber'], progression['LapTimeSeconds'], label='Lap Time (s)')
+        plt.xlabel('Lap Number')
+        plt.ylabel('Lap Time (Sec)')
+        plt.title(f'Lap Time Progression for {self.identifier} - {self.year} Round {self.round_number}')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
 
     def analyze(self) -> AnalyzeResult:
         """
