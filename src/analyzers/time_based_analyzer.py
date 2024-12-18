@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import logging
 
-from base_analyzer import BaseAnalyzer
+from .base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ class AnalyzeResult(TypedDict):
     round: int
     average_lap_time: float
     fastest_lap: float
+    lap_time_variance: float
 
 
 class TimeBasedAnalyzer(BaseAnalyzer):
@@ -32,6 +33,46 @@ class TimeBasedAnalyzer(BaseAnalyzer):
         super().load_session()
         logger.info(f"Loading lap times for {self.identifier}")
 
+    def get_lap_times_dropna(self) -> pd.Series:
+        """
+
+        :return: Clean lap times (without any nan values
+        """
+        return self.laps['LapTime'].dropna().dt.total_seconds()
+
+    def calculate_lap_time_variance(self) -> float:
+        """
+        Calculates variance of lap time, lower variance means more consistent laps
+        :return: Varience of lap times
+        """
+        lap_times = self.get_lap_times_dropna()
+        filtered_lap_times = self.filter_lap_outliers(lap_times)
+        filtered_lap_times = pd.Series(filtered_lap_times)
+        return filtered_lap_times.var()
+
+    def calculate_lap_times_percentile(self, percentile: list = [25, 50, 75]) -> dict:
+        """
+        Calculates percentiles of lap times
+        :param percentile: list of percentiles to calculate, default is 25, 50, 75
+        :return: Dictionary of selected percentile and its value
+        """
+        lap_times = self.get_lap_times_dropna()
+        filtered_lap_times = self.filter_lap_outliers(lap_times)
+        filtered_lap_times = pd.Series(filtered_lap_times)
+        percentile_values = {p: np.percentile(filtered_lap_times, p) for p in percentile}
+        return percentile_values
+
+    def lap_time_progression(self) -> pd.DataFrame:
+        """
+        Calculates time differences between laps
+        :return: DataFrame with lap number, lap times, time change by lap
+        """
+        progression = self.laps[['LapNumber', 'LapTimes']].dropna()
+        progression['LapTimeSeconds'] = progression['LapTimes'].dt.total_seconds()
+        progression = progression.sort_values(by='LapNumber')
+        progression['TimeChange'] = progression['LapTimeSeconds'].diff()
+        return progression
+
     @staticmethod
     def filter_lap_outliers(lap_times: pd.Series) -> list:
         """
@@ -48,7 +89,7 @@ class TimeBasedAnalyzer(BaseAnalyzer):
         Calculates average lap time for team or driver, self.laps must be loaded first in child class
         :return: average lap time for team or driver
         """
-        lap_times = self.laps['LapTime'].dropna().dt.total_seconds()  # Exclude NaT values
+        lap_times = self.get_lap_times_dropna()
         clean_lap_times = self.filter_lap_outliers(lap_times)
 
         if len(clean_lap_times) == 0:
@@ -62,7 +103,8 @@ class TimeBasedAnalyzer(BaseAnalyzer):
 
     def analyze(self) -> AnalyzeResult:
         """
-        Analyzes lap times and returns average lap time and fastest lap.
+        Analyzes lap times and returns average lap time, fastest lap, lap time variance.
+        :return: Dictionary with identifier, session info, average and fastest lap and lap time variance
         """
         if self.laps is None:
             self.load_data()
@@ -70,6 +112,7 @@ class TimeBasedAnalyzer(BaseAnalyzer):
         assert isinstance(self.laps, pd.DataFrame)
         # Don't know how to tell mypy that self.laps is not "DataFrame | None", but it is actually "DataFrame"
         avg_lap_time = self.get_average_lap_time()
+        lap_time_variance = self.calculate_lap_time_variance()
         fastest_lap = self.laps['LapTime'].min().total_seconds()
 
         return {
@@ -77,16 +120,6 @@ class TimeBasedAnalyzer(BaseAnalyzer):
             "year": self.year,
             "round": self.round_number,
             "average_lap_time": avg_lap_time,
-            "fastest_lap": fastest_lap
+            "fastest_lap": fastest_lap,
+            "lap_time_variance": lap_time_variance
         }
-
-    def analyze_lap_differences(self) -> pd.DataFrame:
-        """
-        Analyzes the lap time differences between the laps.
-        """
-        if self.laps is None:
-            self.load_data()
-
-        # Calculate the differences between consecutive laps
-        self.laps['lap_diff'] = self.laps['LapTime'].diff().dt.total_seconds()
-        return self.laps[['LapNumber', 'lap_diff']]
